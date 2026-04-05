@@ -4,41 +4,55 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body { margin: 0; overflow: hidden; touch-action: none; }
+      body { margin: 0; overflow: hidden; touch-action: none; font-family: sans-serif; }
       
-      /* 안내 문구 */
-      #info {
+      /* UI 요소들을 묶는 컨테이너 */
+      #ui-container { position: absolute; width: 100%; height: 100%; z-index: 1000; pointer-events: none; }
+
+      /* 상단 안내 문구 */
+      #info-panel {
         position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-        background: rgba(0,0,0,0.7); color: white; padding: 10px;
-        border-radius: 15px; font-size: 12px; z-index: 999; text-align: center; width: 80%;
+        background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
+        border-radius: 15px; font-size: 12px; text-align: center; width: 80%;
       }
 
-      /* 촬영 버튼: 화면 맨 앞으로 강제 배치 */
-      #capture-container {
-        position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-        z-index: 1000; /* 모든 요소보다 위에 배치 */
+      /* 촬영 준비 버튼 (화면 하단) */
+      #btn-prepare-shot {
+        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: white; color: black; border: 4px solid #aaa; padding: 15px 30px;
+        border-radius: 30px; font-weight: bold; font-size: 16px; cursor: pointer;
+        pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5);
       }
-      #btn-shot {
-        width: 80px; height: 80px; background: white; border: 6px solid #aaa;
-        border-radius: 50%; cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.5);
+      #btn-prepare-shot:active { background: #ddd; transform: translateX(-50%) scale(0.95); }
+
+      /* 스크린샷 캡쳐 안내 메시지 (처음엔 숨김) */
+      #screenshot-guide {
+        display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(255,255,255,0.9); color: black; padding: 20px;
+        border-radius: 15px; text-align: center; z-index: 2000; box-shadow: 0 0 20px rgba(0,0,0,0.3);
       }
-      #btn-shot:active { background: #ddd; transform: scale(0.9); }
     </style>
   </head>
   <body>
-    <div id="info">
-      🖐️ 드래그: 이동 | ✌️ 두 손가락: 회전<br>
-      👆 짧게 터치: 크기 조절 | 📸 하단 버튼: 촬영
+    <div id="ui-container">
+      <div id="info-panel">
+        🖐️ 이동 | ✌️ 회전 | 👆 크기 조절<br>
+        구도를 잡고 아래 버튼을 누르세요! (30초 유지)
+      </div>
+      <button id="btn-prepare-shot">📸 촬영 준비 (UI 숨기기)</button>
     </div>
 
-    <div id="capture-container">
-      <div id="btn-shot"></div>
+    <div id="screenshot-guide">
+      <b style="font-size: 18px;">📸 지금 스크린샷을 찍으세요!</b><br><br>
+      스마트폰의 <b>화면 캡쳐 버튼</b>을 눌러<br>
+      울릉천사와 함께 사진을 남기세요.<br><br>
+      (화면을 터치하면 도구들이 다시 나타납니다)
     </div>
 
     <a-scene 
       id="ar-scene"
       mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1800;" 
-      color-space="sRGB" renderer="preserveDrawingBuffer: true; colorManagement: true;" 
+      color-space="sRGB" renderer="colorManagement: true;" 
       vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: true">
       
       <a-assets>
@@ -59,22 +73,40 @@
 
     <script>
       const model = document.querySelector('#angel-model');
-      const shotBtn = document.querySelector('#btn-shot');
+      const prepareBtn = document.querySelector('#btn-prepare-shot');
+      const uiContainer = document.querySelector('#ui-container');
+      const screenshotGuide = document.querySelector('#screenshot-guide');
       
       let currentPos = {x: 0, y: 0};
       let currentScale = 1.0;
       let currentRot = 0;
-      
-      let startX, startY, startDist, startAngle;
+      let startX, startY, startAngle;
 
-      // 터치 이벤트 핸들러
+      // 1. 촬영 준비 기능 (UI 숨기기)
+      prepareBtn.addEventListener('click', () => {
+        uiContainer.style.display = 'none'; // 모든 UI 숨김
+        screenshotGuide.style.display = 'block'; // 스크린샷 안내 메시지 표시
+
+        // 3초 후 안내 메시지도 숨김 (깨끗한 화면)
+        setTimeout(() => {
+          screenshotGuide.style.display = 'none';
+        }, 3000);
+      });
+
+      // 2. 화면 터치 시 UI 다시 표시
+      window.addEventListener('click', (e) => {
+        // UI가 숨겨져 있을 때만 작동
+        if (uiContainer.style.display === 'none' && screenshotGuide.style.display === 'none') {
+          uiContainer.style.display = 'block'; // UI 다시 표시
+        }
+      });
+
+      // 3. 조작 이벤트 (이동, 회전, 크기 조절) - 버튼 영역 제외
       window.addEventListener('touchstart', (e) => {
-        if(e.target === shotBtn) return;
-        
-        if (e.touches.length === 1) { // 이동 시작
-          startX = e.touches[0].clientX;
-          startY = e.touches[0].clientY;
-        } else if (e.touches.length === 2) { // 회전 시작
+        if(e.target === prepareBtn) return;
+        if (e.touches.length === 1) {
+          startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
           const dx = e.touches[0].clientX - e.touches[1].clientX;
           const dy = e.touches[0].clientY - e.touches[1].clientY;
           startAngle = Math.atan2(dy, dx);
@@ -82,50 +114,30 @@
       });
 
       window.addEventListener('touchmove', (e) => {
-        if(e.target === shotBtn) return;
-
-        if (e.touches.length === 1) { // 이동 드래그
+        if(e.target === prepareBtn) return;
+        if (e.touches.length === 1) { // 이동
           const dx = (e.touches[0].clientX - startX) * 0.005;
           const dy = (startY - e.touches[0].clientY) * 0.005;
-          currentPos.x += dx;
-          currentPos.y += dy;
+          currentPos.x += dx; currentPos.y += dy;
           model.setAttribute('position', `${currentPos.x} ${currentPos.y} 0.1`);
-          startX = e.touches[0].clientX;
-          startY = e.touches[0].clientY;
-        } else if (e.touches.length === 2) { // 회전 (두 손가락)
+          startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) { // 회전
           const dx = e.touches[0].clientX - e.touches[1].clientX;
           const dy = e.touches[0].clientY - e.touches[1].clientY;
           const angle = Math.atan2(dy, dx);
-          const deltaAngle = (angle - startAngle) * (180 / Math.PI);
-          currentRot += deltaAngle;
+          currentRot += (angle - startAngle) * (180 / Math.PI);
           model.setAttribute('rotation', `0 0 ${currentRot}`);
           startAngle = angle;
         }
       });
 
-      // 짧은 터치 시 크기 조절
-      window.addEventListener('click', (e) => {
-        if(e.target === shotBtn || e.target.closest('#info')) return;
-        currentScale += 0.3;
-        if (currentScale > 4) currentScale = 0.5;
-        model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
-      });
-
-      // 촬영(화면 캡처) 기능
-      shotBtn.addEventListener('click', () => {
-        const scene = document.querySelector('a-scene');
-        // A-Frame 내장 스크린샷 기능을 사용하여 캔버스 추출
-        const canvas = scene.components.screenshot.getCanvas('perspective');
-        
-        try {
-          const dataURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = 'UlleungAngel_AR.png';
-          link.href = dataURL;
-          link.click();
-          alert('사진 촬영 완료! 저장된 파일을 확인하세요.');
-        } catch (err) {
-          alert('촬영 중 오류가 발생했습니다. 수동 스크린샷을 이용해 주세요.');
+      // 짧게 터치 시 크기 조절 (버튼 제외)
+      window.addEventListener('touchend', (e) => {
+        if(e.target === prepareBtn || e.target.closest('#info-panel') || e.target.closest('#screenshot-guide')) return;
+        if (e.touches.length === 0) { // 터치가 완전히 끝났을 때
+          currentScale += 0.3;
+          if (currentScale > 4) currentScale = 0.5;
+          model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
         }
       });
     </script>
