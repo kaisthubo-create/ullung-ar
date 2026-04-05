@@ -4,45 +4,25 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body { margin: 0; overflow: hidden; }
-      /* 조절 UI 패널 */
-      #controls {
-        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-        width: 85%; background: rgba(0,0,0,0.75); padding: 15px; border-radius: 20px;
-        z-index: 10; color: white; font-family: sans-serif; font-size: 12px;
+      body { margin: 0; overflow: hidden; touch-action: none; }
+      #info-panel {
+        position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+        background: rgba(0,0,0,0.6); color: white; padding: 10px 20px;
+        border-radius: 20px; font-family: sans-serif; font-size: 13px;
+        z-index: 10; text-align: center; pointer-events: none;
       }
-      .control-group { margin-bottom: 10px; }
-      input[type=range] { width: 100%; height: 15px; margin-top: 5px; }
-      .label-row { display: flex; justify-content: space-between; font-weight: bold; }
     </style>
   </head>
   <body>
-    <div id="controls">
-      <div class="control-group">
-        <div class="label-row"><span>↔ 좌우 위치</span><span id="val-x">0</span></div>
-        <input type="range" id="pos-x" min="-2" max="2" step="0.1" value="0">
-      </div>
-      <div class="control-group">
-        <div class="label-row"><span>↕ 상하 위치</span><span id="val-y">0</span></div>
-        <input type="range" id="pos-y" min="-2" max="2" step="0.1" value="0">
-      </div>
-      <div class="control-group">
-        <div class="label-row"><span>🔍 크기 조절</span><span id="val-s">1.0</span></div>
-        <input type="range" id="scale-slider" min="0.1" max="4" step="0.1" value="1">
-      </div>
-      <div class="control-group">
-        <div class="label-row"><span>🔄 회전(방향)</span><span id="val-r">0°</span></div>
-        <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
-      </div>
-      <div style="text-align: center; font-size: 10px; opacity: 0.8;">인식 후 30초 유지 | 원하는 구도를 잡고 캡처하세요!</div>
+    <div id="info-panel">
+      👉 캐릭터를 <b>손가락으로 밀어서</b> 이동시키세요!<br>
+      👆 화면을 <b>짧게 터치</b>하면 크기가 커집니다. (30초 유지)
     </div>
 
     <a-scene 
       mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1800;" 
-      color-space="sRGB" 
-      renderer="colorManagement: true, physicallyCorrectLights" 
-      vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: true">
+      color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: true">
       
       <a-assets>
         <img id="angel-char" src="./character.png">
@@ -55,49 +35,54 @@
           id="character-model"
           src="#angel-char" 
           position="0 0 0.1" 
-          width="1" height="1">
+          width="1" height="1"
+          class="clickable">
         </a-image>
       </a-entity>
     </a-scene>
 
     <script>
       const model = document.querySelector('#character-model');
-      
-      // 컨트롤 요소들
-      const ctrlX = document.querySelector('#pos-x');
-      const ctrlY = document.querySelector('#pos-y');
-      const ctrlS = document.querySelector('#scale-slider');
-      const ctrlR = document.querySelector('#rotation-slider');
+      let isDragging = false;
+      let startX, startY;
+      let currentX = 0, currentY = 0;
+      let currentScale = 1.0;
 
-      // 값 표시 요소들
-      const valX = document.querySelector('#val-x');
-      const valY = document.querySelector('#val-y');
-      const valS = document.querySelector('#val-s');
-      const valR = document.querySelector('#val-r');
+      // 1. 드래그 위치 이동 로직
+      window.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      });
 
-      function updateTransform() {
-        const x = ctrlX.value;
-        const y = ctrlY.value;
-        const s = ctrlS.value;
-        const r = ctrlR.value;
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
 
-        // 위치 업데이트 (Z축은 0.1 고정)
-        model.setAttribute('position', `${x} ${y} 0.1`);
-        // 크기 업데이트 (가로세로 비율 유지)
-        model.setAttribute('scale', `${s} ${s} ${s}`);
-        // 회전 업데이트
-        model.setAttribute('rotation', `0 0 ${r}`);
+        const touchX = e.touches[0].clientX;
+        const touchY = e.touches[0].clientY;
 
-        // 텍스트 업데이트
-        valX.innerText = x;
-        valY.innerText = y;
-        valS.innerText = s;
-        valR.innerText = r + '°';
-      }
+        // 화면 이동 거리 계산 (감도 조절을 위해 0.005 곱함)
+        const diffX = (touchX - startX) * 0.005;
+        const diffY = (startY - touchY) * 0.005;
 
-      // 모든 슬라이더에 이벤트 리스너 추가
-      [ctrlX, ctrlY, ctrlS, ctrlR].forEach(ctrl => {
-        ctrl.addEventListener('input', updateTransform);
+        currentX += diffX;
+        currentY += diffY;
+
+        model.setAttribute('position', `${currentX} ${currentY} 0.1`);
+
+        startX = touchX;
+        startY = touchY;
+      });
+
+      window.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+
+      // 2. 짧은 터치 시 크기 조절 (탭 방식)
+      window.addEventListener('click', () => {
+        currentScale += 0.3;
+        if (currentScale > 4) currentScale = 0.5; // 너무 커지면 다시 작게
+        model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
       });
     </script>
   </body>
