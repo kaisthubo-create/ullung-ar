@@ -5,23 +5,36 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
       body { margin: 0; overflow: hidden; }
-      /* 컨트롤 UI 스타일 */
+      /* 조절 UI 패널 */
       #controls {
-        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-        width: 80%; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 15px;
-        z-index: 10; text-align: center; color: white; font-family: sans-serif;
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        width: 85%; background: rgba(0,0,0,0.75); padding: 15px; border-radius: 20px;
+        z-index: 10; color: white; font-family: sans-serif; font-size: 12px;
       }
-      input[type=range] { width: 100%; margin: 10px 0; }
-      .label { font-size: 14px; font-weight: bold; }
+      .control-group { margin-bottom: 10px; }
+      input[type=range] { width: 100%; height: 15px; margin-top: 5px; }
+      .label-row { display: flex; justify-content: space-between; font-weight: bold; }
     </style>
   </head>
   <body>
     <div id="controls">
-      <div class="label">울릉천사 크기 조절</div>
-      <input type="range" id="scale-slider" min="0.1" max="5" step="0.1" value="1">
-      <div class="label">방향(회전) 조절</div>
-      <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
-      <div style="font-size: 11px; margin-top: 5px;">인식 후 30초간 유지됩니다. 사진을 찍으세요!</div>
+      <div class="control-group">
+        <div class="label-row"><span>↔ 좌우 위치</span><span id="val-x">0</span></div>
+        <input type="range" id="pos-x" min="-2" max="2" step="0.1" value="0">
+      </div>
+      <div class="control-group">
+        <div class="label-row"><span>↕ 상하 위치</span><span id="val-y">0</span></div>
+        <input type="range" id="pos-y" min="-2" max="2" step="0.1" value="0">
+      </div>
+      <div class="control-group">
+        <div class="label-row"><span>🔍 크기 조절</span><span id="val-s">1.0</span></div>
+        <input type="range" id="scale-slider" min="0.1" max="4" step="0.1" value="1">
+      </div>
+      <div class="control-group">
+        <div class="label-row"><span>🔄 회전(방향)</span><span id="val-r">0°</span></div>
+        <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
+      </div>
+      <div style="text-align: center; font-size: 10px; opacity: 0.8;">인식 후 30초 유지 | 원하는 구도를 잡고 캡처하세요!</div>
     </div>
 
     <a-scene 
@@ -49,20 +62,42 @@
 
     <script>
       const model = document.querySelector('#character-model');
-      const scaleSlider = document.querySelector('#scale-slider');
-      const rotationSlider = document.querySelector('#rotation-slider');
+      
+      // 컨트롤 요소들
+      const ctrlX = document.querySelector('#pos-x');
+      const ctrlY = document.querySelector('#pos-y');
+      const ctrlS = document.querySelector('#scale-slider');
+      const ctrlR = document.querySelector('#rotation-slider');
 
-      // 크기 조절 (가로세로 비율 고정)
-      scaleSlider.addEventListener('input', (e) => {
-        const s = e.target.value;
-        // 가로, 세로, 깊이 모두 같은 값을 주어 비율을 유지합니다.
+      // 값 표시 요소들
+      const valX = document.querySelector('#val-x');
+      const valY = document.querySelector('#val-y');
+      const valS = document.querySelector('#val-s');
+      const valR = document.querySelector('#val-r');
+
+      function updateTransform() {
+        const x = ctrlX.value;
+        const y = ctrlY.value;
+        const s = ctrlS.value;
+        const r = ctrlR.value;
+
+        // 위치 업데이트 (Z축은 0.1 고정)
+        model.setAttribute('position', `${x} ${y} 0.1`);
+        // 크기 업데이트 (가로세로 비율 유지)
         model.setAttribute('scale', `${s} ${s} ${s}`);
-      });
-
-      // 방향(좌우 회전) 조절
-      rotationSlider.addEventListener('input', (e) => {
-        const r = e.target.value;
+        // 회전 업데이트
         model.setAttribute('rotation', `0 0 ${r}`);
+
+        // 텍스트 업데이트
+        valX.innerText = x;
+        valY.innerText = y;
+        valS.innerText = s;
+        valR.innerText = r + '°';
+      }
+
+      // 모든 슬라이더에 이벤트 리스너 추가
+      [ctrlX, ctrlY, ctrlS, ctrlR].forEach(ctrl => {
+        ctrl.addEventListener('input', updateTransform);
       });
     </script>
   </body>
