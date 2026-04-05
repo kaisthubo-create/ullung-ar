@@ -1,15 +1,26 @@
 <html>
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
       body { margin: 0; overflow: hidden; }
+      #UI-guide {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        color: white; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px;
+        font-family: 'Malgun Gothic', sans-serif; z-index: 10; pointer-events: none; text-align: center;
+        font-size: 14px; line-height: 1.4;
+      }
     </style>
   </head>
   <body>
+    <div id="UI-guide">
+      이미지를 인식하면 울릉천사가 나타납니다!<br>
+      <b>화면을 터치하면 크기가 커집니다 (20초간 유지)</b>
+    </div>
+
     <a-scene 
-      mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes;" 
+      mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1200;" 
       color-space="sRGB" 
       renderer="colorManagement: true, physicallyCorrectLights" 
       vr-mode-ui="enabled: false" 
@@ -19,11 +30,31 @@
         <img id="angel-char" src="./character.png">
       </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        <a-image src="#angel-char" position="0 0 0.1" scale="1.5 1.5 1.5"></a-image>
+      <a-entity id="target-anchor" mindar-image-target="targetIndex: 0">
+        <a-image 
+          id="character-model"
+          src="#angel-char" 
+          position="0 0 0.1" 
+          scale="1 1 1"
+          class="clickable">
+        </a-image>
       </a-entity>
     </a-scene>
+
+    <script>
+      const model = document.querySelector('#character-model');
+      let scaleSize = 1.0;
+
+      // 화면 터치 시 크기 조절 로직
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          scaleSize += 0.25; // 한 번 터치할 때마다 0.25배씩 커짐
+          if (scaleSize > 4.0) scaleSize = 0.5; // 너무 커지면 다시 작게(0.5배) 순환
+          model.setAttribute('scale', `${scaleSize} ${scaleSize} ${scaleSize}`);
+        }
+      });
+    </script>
   </body>
 </html>
