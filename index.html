@@ -3,25 +3,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
       body { margin: 0; overflow: hidden; touch-action: none; }
+      
+      /* 상단 안내 패널 */
       #info-panel {
         position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-        background: rgba(0,0,0,0.6); color: white; padding: 10px 20px;
-        border-radius: 20px; font-family: sans-serif; font-size: 13px;
+        background: rgba(0,0,0,0.6); color: white; padding: 8px 15px;
+        border-radius: 20px; font-family: sans-serif; font-size: 12px;
         z-index: 10; text-align: center; pointer-events: none;
       }
+
+      /* 촬영 버튼 스타일 */
+      #capture-btn {
+        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        width: 70px; height: 70px; background: white; border: 5px solid #ccc;
+        border-radius: 50%; z-index: 100; cursor: pointer;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      }
+      #capture-btn:active { background: #eee; transform: translateX(-50%) scale(0.9); }
     </style>
   </head>
   <body>
     <div id="info-panel">
-      👉 캐릭터를 <b>손가락으로 밀어서</b> 이동시키세요!<br>
-      👆 화면을 <b>짧게 터치</b>하면 크기가 커집니다. (30초 유지)
+      🖐️ 드래그: 이동 | 👆 터치: 크기 조절<br>
+      📸 하단 버튼을 눌러 사진을 찍으세요! (30초 유지)
     </div>
 
+    <div id="capture-btn"></div>
+
     <a-scene 
+      id="ar-scene"
       mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1800;" 
-      color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" 
+      color-space="sRGB" renderer="preserveDrawingBuffer: true; colorManagement: true; physicallyCorrectLights" 
       vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: true">
       
       <a-assets>
@@ -35,21 +50,22 @@
           id="character-model"
           src="#angel-char" 
           position="0 0 0.1" 
-          width="1" height="1"
-          class="clickable">
+          width="1" height="1">
         </a-image>
       </a-entity>
     </a-scene>
 
     <script>
       const model = document.querySelector('#character-model');
+      const captureBtn = document.querySelector('#capture-btn');
       let isDragging = false;
       let startX, startY;
       let currentX = 0, currentY = 0;
       let currentScale = 1.0;
 
-      // 1. 드래그 위치 이동 로직
+      // 1. 드래그 이동
       window.addEventListener('touchstart', (e) => {
+        if(e.target === captureBtn) return;
         isDragging = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
@@ -57,32 +73,45 @@
 
       window.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
-
         const touchX = e.touches[0].clientX;
         const touchY = e.touches[0].clientY;
-
-        // 화면 이동 거리 계산 (감도 조절을 위해 0.005 곱함)
-        const diffX = (touchX - startX) * 0.005;
-        const diffY = (startY - touchY) * 0.005;
-
-        currentX += diffX;
-        currentY += diffY;
-
+        currentX += (touchX - startX) * 0.005;
+        currentY += (startY - touchY) * 0.005;
         model.setAttribute('position', `${currentX} ${currentY} 0.1`);
-
-        startX = touchX;
-        startY = touchY;
+        startX = touchX; startY = touchY;
       });
 
-      window.addEventListener('touchend', () => {
-        isDragging = false;
-      });
+      window.addEventListener('touchend', () => { isDragging = false; });
 
-      // 2. 짧은 터치 시 크기 조절 (탭 방식)
-      window.addEventListener('click', () => {
+      // 2. 터치 크기 조절 (버튼 영역 제외)
+      window.addEventListener('click', (e) => {
+        if(e.target === captureBtn) return;
         currentScale += 0.3;
-        if (currentScale > 4) currentScale = 0.5; // 너무 커지면 다시 작게
+        if (currentScale > 4) currentScale = 0.5;
         model.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
+      });
+
+      // 3. 촬영 기능 (화면 캡처 후 다운로드)
+      captureBtn.addEventListener('click', () => {
+        // UI를 잠시 숨김
+        document.getElementById('info-panel').style.display = 'none';
+        captureBtn.style.display = 'none';
+
+        setTimeout(() => {
+          const scene = document.querySelector('a-scene');
+          const canvas = scene.components.screenshot.getCanvas('perspective');
+          
+          // 스크린샷 캡처 및 다운로드
+          const link = document.createElement('a');
+          link.setAttribute('download', 'UlleungAngel_AR.png');
+          link.setAttribute('href', canvas.toDataURL('image/png'));
+          link.click();
+
+          // UI 다시 표시
+          document.getElementById('info-panel').style.display = 'block';
+          captureBtn.style.display = 'block';
+          alert('사진이 저장되었습니다!');
+        }, 200);
       });
     </script>
   </body>
