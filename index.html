@@ -5,22 +5,27 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
       body { margin: 0; overflow: hidden; }
-      #UI-guide {
-        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-        color: white; background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px;
-        font-family: 'Malgun Gothic', sans-serif; z-index: 10; pointer-events: none; text-align: center;
-        font-size: 14px; line-height: 1.4;
+      /* 컨트롤 UI 스타일 */
+      #controls {
+        position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        width: 80%; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 15px;
+        z-index: 10; text-align: center; color: white; font-family: sans-serif;
       }
+      input[type=range] { width: 100%; margin: 10px 0; }
+      .label { font-size: 14px; font-weight: bold; }
     </style>
   </head>
   <body>
-    <div id="UI-guide">
-      이미지를 인식하면 울릉천사가 나타납니다!<br>
-      <b>화면을 터치하면 크기가 커집니다 (20초간 유지)</b>
+    <div id="controls">
+      <div class="label">울릉천사 크기 조절</div>
+      <input type="range" id="scale-slider" min="0.1" max="5" step="0.1" value="1">
+      <div class="label">방향(회전) 조절</div>
+      <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
+      <div style="font-size: 11px; margin-top: 5px;">인식 후 30초간 유지됩니다. 사진을 찍으세요!</div>
     </div>
 
     <a-scene 
-      mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1200;" 
+      mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; filterMinCF:0.001; filterBeta: 0.01; missTolerance: 1800;" 
       color-space="sRGB" 
       renderer="colorManagement: true, physicallyCorrectLights" 
       vr-mode-ui="enabled: false" 
@@ -30,30 +35,34 @@
         <img id="angel-char" src="./character.png">
       </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target-anchor" mindar-image-target="targetIndex: 0">
         <a-image 
           id="character-model"
           src="#angel-char" 
           position="0 0 0.1" 
-          scale="1 1 1"
-          class="clickable">
+          width="1" height="1">
         </a-image>
       </a-entity>
     </a-scene>
 
     <script>
       const model = document.querySelector('#character-model');
-      let scaleSize = 1.0;
+      const scaleSlider = document.querySelector('#scale-slider');
+      const rotationSlider = document.querySelector('#rotation-slider');
 
-      // 화면 터치 시 크기 조절 로직
-      window.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-          scaleSize += 0.25; // 한 번 터치할 때마다 0.25배씩 커짐
-          if (scaleSize > 4.0) scaleSize = 0.5; // 너무 커지면 다시 작게(0.5배) 순환
-          model.setAttribute('scale', `${scaleSize} ${scaleSize} ${scaleSize}`);
-        }
+      // 크기 조절 (가로세로 비율 고정)
+      scaleSlider.addEventListener('input', (e) => {
+        const s = e.target.value;
+        // 가로, 세로, 깊이 모두 같은 값을 주어 비율을 유지합니다.
+        model.setAttribute('scale', `${s} ${s} ${s}`);
+      });
+
+      // 방향(좌우 회전) 조절
+      rotationSlider.addEventListener('input', (e) => {
+        const r = e.target.value;
+        model.setAttribute('rotation', `0 0 ${r}`);
       });
     </script>
   </body>
